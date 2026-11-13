@@ -1010,17 +1010,38 @@ namespace ClearDesk
                 }
             };
             day.TextAlignment = TextAlignment.Center;
-            day.Margin = new Thickness(0, 0, 0, 10);
-            content.Children.Add(day);
+            day.TextWrapping = TextWrapping.NoWrap;
+            content.Children.Add(new Viewbox
+            {
+                Stretch = Stretch.Uniform,
+                StretchDirection = StretchDirection.DownOnly,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 0, 0, 10),
+                Child = day
+            });
             var t = Program.Text("", 108, "#F4F8FF");
             t.FontFamily = new FontFamily("Segoe UI Light");
             t.TextAlignment = TextAlignment.Center;
-            content.Children.Add(t);
+            t.TextWrapping = TextWrapping.NoWrap;
+            content.Children.Add(new Viewbox
+            {
+                Stretch = Stretch.Uniform,
+                StretchDirection = StretchDirection.DownOnly,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Child = t
+            });
             var d = Program.Text("", 36, "#C1CCDC");
             d.FontFamily = new FontFamily("Segoe UI");
             d.TextAlignment = TextAlignment.Center;
-            d.Margin = new Thickness(0, 2, 0, 0);
-            content.Children.Add(d);
+            d.TextWrapping = TextWrapping.NoWrap;
+            content.Children.Add(new Viewbox
+            {
+                Stretch = Stretch.Uniform,
+                StretchDirection = StretchDirection.DownOnly,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 2, 0, 0),
+                Child = d
+            });
             c.Children.Add(content);
             c.HorizontalAlignment = HorizontalAlignment.Center;
             Body.Children.Add(c);

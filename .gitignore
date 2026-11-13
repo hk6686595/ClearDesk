@@ -27,3 +27,4 @@ popup-benchmark.json
 .env
 .env.*
 !.env.example
+.commandcode/
