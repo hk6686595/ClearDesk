@@ -65,6 +65,7 @@ namespace ClearDesk
         public double DockOffset = 12;
         public string MusicSource = "auto";
         public bool MusicLyrics = false;
+        public int SettingsHotkeyModifiers = 3, SettingsHotkeyKey = 0x53; // Ctrl+Alt+S
         public Dictionary<string,string> MusicLyricFiles = new Dictionary<string,string>();
         public List<BoxData> Boxes = new List<BoxData>();
         public List<string> Pins = new List<string>();
@@ -99,6 +100,7 @@ namespace ClearDesk
         static Mutex mutex;
         static Forms.NotifyIcon tray;
         static Window settings;
+        static SettingsHotkey settingsHotkey;
         static List<GlassWindow> windows = new List<GlassWindow>();
         internal static void RefreshDockOffset() { foreach (var d in windows.OfType<DockWindow>()) d.ApplyOffset(); }
         /// <summary>2.3.1: 隐藏 / 显示搜索 (收纳格 and 启动台), saved in settings.json and applied to the windows that are open.</summary>
@@ -256,12 +258,18 @@ namespace ClearDesk
                 Quitting = true;
                 if (Services != null)
                     Services.Dispose();
+                if (settingsHotkey != null)
+                {
+                    settingsHotkey.Dispose();
+                    settingsHotkey = null;
+                }
                 if (tray != null)
                     tray.Dispose();
             };
             Resources();
             Services = new DesktopServices();
             SetupTray();
+            StartSettingsHotkey();
             Rebuild();
             if (!Preview)
             {
@@ -318,7 +326,8 @@ namespace ClearDesk
                 Rebuild();
             }
 
-            if (requested == null && pinRequest.Count == 0 && !args.Contains("--lyrics-test") && !args.Contains("--weather-test") && !args.Contains("--popup-benchmark") && !args.Contains("--perf231") && !args.Contains("--startup") && !args.Contains("--benchmark") && !args.Contains("--integration-test") && !args.Contains("--regression-test") && !args.Contains("--update-e2e"))
+            // Preview sessions keep their settings surface for screenshots; regular launches stay in the tray.
+            if (Preview && requested == null && pinRequest.Count == 0 && !args.Contains("--lyrics-test") && !args.Contains("--weather-test") && !args.Contains("--popup-benchmark") && !args.Contains("--perf231") && !args.Contains("--startup") && !args.Contains("--benchmark") && !args.Contains("--integration-test") && !args.Contains("--regression-test") && !args.Contains("--update-e2e"))
                 ShowSettings();
             if (args.Contains("--popup-benchmark"))
                 PopupBenchmark.Start();
@@ -710,6 +719,34 @@ namespace ClearDesk
                 App.Dispatcher.Invoke(new Action(ShowSettings));
             };
             tray.BalloonTipClicked += delegate { var a = balloonClick; if (a != null) { try { App.Dispatcher.BeginInvoke(a); } catch { } } };
+        }
+
+        static void StartSettingsHotkey()
+        {
+            if (Preview) return;
+            try
+            {
+                settingsHotkey = new SettingsHotkey(ShowSettings);
+                string error;
+                if (!settingsHotkey.TrySet(S.SettingsHotkeyModifiers, S.SettingsHotkeyKey, out error))
+                    LogText("设置窗口快捷键注册失败：" + error);
+            }
+            catch (Exception e) { Log(e); }
+        }
+
+        internal static bool SetSettingsHotkey(int modifiers, int key, out string error)
+        {
+            if (settingsHotkey == null && !Preview)
+            {
+                error = "全局快捷键服务尚未启动。";
+                return false;
+            }
+            if (settingsHotkey != null && !settingsHotkey.TrySet(modifiers, key, out error)) return false;
+            S.SettingsHotkeyModifiers = modifiers;
+            S.SettingsHotkeyKey = key;
+            Save();
+            error = null;
+            return true;
         }
 
         static Action balloonClick;
@@ -1104,6 +1141,10 @@ namespace ClearDesk
                 if (t.Boxes[0].Title != "测试中文" || t.Boxes[0].Items[0] != s.Boxes[0].Items[0])
                     throw new Exception("Config round-trip");
                 results.Add("PASS: Chinese/path config round-trip");
+                var oldSettings = new JavaScriptSerializer().Deserialize<Settings>("{\"ConfigVersion\":1}");
+                if (oldSettings.SettingsHotkeyModifiers != (SettingsHotkey.Control | SettingsHotkey.Alt) || oldSettings.SettingsHotkeyKey != 0x53 || SettingsHotkey.Format(oldSettings.SettingsHotkeyModifiers, oldSettings.SettingsHotkeyKey) != "Ctrl+Alt+S")
+                    throw new Exception("Settings hotkey defaults and display");
+                results.Add("PASS: legacy settings receive the default Ctrl+Alt+S shortcut");
                 MusicTests.Rules(delegate(bool ok, string label) { if (!ok) throw new Exception(label); results.Add("PASS: " + label); });
                 V2Tests.Rules(delegate(bool ok, string label) { if (!ok) throw new Exception(label); results.Add("PASS: " + label); });
                 V203Tests.Rules(delegate(bool ok, string label) { if (!ok) throw new Exception(label); results.Add("PASS: " + label); });

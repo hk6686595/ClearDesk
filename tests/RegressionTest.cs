@@ -42,6 +42,18 @@ namespace ClearDesk
             try
             {
                 await Task.Delay(1200);
+                if (Environment.GetEnvironmentVariable("CLEARDESK_ONLY") == "dockstartup")
+                {
+                    var startupDock = Program.App.Windows.OfType<DockWindow>().First();
+                    await Task.Delay(50);
+                    Check(startupDock.IsLoaded && startupDock.TestItemsFit, "Dock startup reflow keeps every item inside its window after monitor attachment");
+                    return;
+                }
+                if (Environment.GetEnvironmentVariable("CLEARDESK_ONLY") == "settingshotkey")
+                {
+                    await SettingsWindowTests.Run(Check);
+                    return;
+                }
                 if (Environment.GetEnvironmentVariable("CLEARDESK_ONLY") == "v227")      // developer shortcut: only the 2.2.6-2.2.8 folder tests
                 {
                     V235Tests.Rules(Check); V234Tests.Rules(Check); V233Tests.Rules(Check); V232Tests.Rules(Check); V231Tests.Rules(Check); V230Tests.Rules(Check); V229Tests.Rules(Check); V228Tests.Rules(Check); V227Tests.Rules(Check); V226Tests.Rules(Check); await V235Tests.Run(Check); await V234Tests.Run(Check); await V233Tests.Run(Check); await V232Tests.Run(Check); await V231Tests.Run(Check); await V230Tests.Run(Check); await V229Tests.Run(Check); await V228Tests.Run(Check); await V227Tests.Run(Check); await V226Tests.Run(Check);
@@ -80,7 +92,9 @@ namespace ClearDesk
                 }
                 var organizer = Program.App.Windows.OfType<OrganizerWindow>().First();
                 var dock = Program.App.Windows.OfType<DockWindow>().First();
+                await Task.Delay(50);
                 Check(organizer.IsLoaded && organizer.TestGrid.ItemCount == Program.DesktopItems().Concat(SystemItems.OnDesktop()).Distinct(StringComparer.OrdinalIgnoreCase).Count(p => !organizer.TestState.Excluded.Contains(p)), "organizer creates successfully and shows all desktop references");
+                Check(dock.IsLoaded && dock.TestItemsFit, "Dock reflows after attaching to its monitor and keeps every item inside the startup window");
                 int initialCount = organizer.TestGrid.ItemCount;
                 double initialHeight = organizer.Height;
                 organizer.TestToggleCollapsed();

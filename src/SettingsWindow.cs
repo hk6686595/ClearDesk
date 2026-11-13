@@ -22,6 +22,8 @@ namespace ClearDesk
         readonly TextBlock status = Label("设置会保存，组件调整后点击应用。", 11, "#7D889B");
         readonly TextBox search = new TextBox();
         readonly ScrollViewer scroll;
+        Button shortcutButton;
+        bool capturingShortcut;
         int selected;
         sealed class Page
         {
@@ -105,6 +107,8 @@ namespace ClearDesk
             Content = layout;
             BuildPages(startup); BuildManager(); Render();
             Activated += delegate { if (selected == ManagerPage && search.Text.Length == 0 && !editing) RefreshManager(); };
+            PreviewKeyDown += CaptureShortcut;
+            Deactivated += delegate { if (capturingShortcut) CancelShortcutCapture("已取消快捷键设置。"); };
         }
         Button Caption(string glyph, string name, Action action)
         {
@@ -150,6 +154,61 @@ namespace ClearDesk
                 Changed(); if (Program.LastStartupMessage.Length > 0) status.Text = Program.LastStartupMessage;
             };
         }
+        void ShortcutRow(Group group)
+        {
+            shortcutButton = ActionButton(SettingsHotkey.Format(state.SettingsHotkeyModifiers, state.SettingsHotkeyKey), delegate
+            {
+                capturingShortcut = true;
+                shortcutButton.Content = "按下组合键…";
+                status.Text = "按下包含 Ctrl、Alt 或 Shift 的组合键；按 Esc 取消。";
+                shortcutButton.Focus();
+            });
+            shortcutButton.MinWidth = 132;
+            AutomationProperties.SetName(shortcutButton, "设置窗口快捷键");
+            shortcutButton.ToolTip = "录制打开设置窗口的全局快捷键";
+            Row(group, "呼出设置窗口", "点击右侧按钮后按下快捷键；按 Esc 取消。", shortcutButton);
+        }
+        void CancelShortcutCapture(string message)
+        {
+            capturingShortcut = false;
+            shortcutButton.Content = SettingsHotkey.Format(state.SettingsHotkeyModifiers, state.SettingsHotkeyKey);
+            status.Text = message;
+        }
+        static bool IsModifierKey(Key key)
+        {
+            return key == Key.LeftCtrl || key == Key.RightCtrl || key == Key.LeftAlt || key == Key.RightAlt ||
+                key == Key.LeftShift || key == Key.RightShift || key == Key.LWin || key == Key.RWin;
+        }
+        void CaptureShortcut(object sender, KeyEventArgs e)
+        {
+            if (!capturingShortcut) return;
+            e.Handled = true;
+            if (e.Key == Key.Escape) { CancelShortcutCapture("已取消快捷键设置。"); return; }
+            Key pressed = e.Key == Key.System ? e.SystemKey : e.Key;
+            if (IsModifierKey(pressed)) return;
+
+            int modifiers = 0;
+            ModifierKeys held = e.KeyboardDevice.Modifiers;
+            if ((held & ModifierKeys.Control) != 0) modifiers |= SettingsHotkey.Control;
+            if ((held & ModifierKeys.Alt) != 0) modifiers |= SettingsHotkey.Alt;
+            if ((held & ModifierKeys.Shift) != 0) modifiers |= SettingsHotkey.Shift;
+            int key = KeyInterop.VirtualKeyFromKey(pressed);
+            if (modifiers == 0 || key == 0)
+            {
+                status.Text = "快捷键需包含 Ctrl、Alt 或 Shift 修饰键。";
+                return;
+            }
+
+            string error;
+            if (!Program.SetSettingsHotkey(modifiers, key, out error))
+            {
+                status.Text = "无法设置该快捷键：" + error;
+                return;
+            }
+            shortcutButton.Content = SettingsHotkey.Format(modifiers, key);
+            capturingShortcut = false;
+            status.Text = "设置窗口快捷键已保存并生效。";
+        }
         void Toggle(Group group, string title, string description, bool initial, Action<bool> change)
         {
             var toggle = new CheckBox { IsChecked = initial }; AutomationProperties.SetName(toggle,title);
@@ -173,6 +232,7 @@ namespace ClearDesk
         {
             var g = AddGroup(0,"桌面与启动");
             StartupRow(g,startup);
+            ShortcutRow(g);
             Toggle(g,"双击桌面隐藏图标","在桌面空白处双击，隐藏或显示原生图标。",state.Icons,v => { state.Icons = v; if (!Program.Preview) Program.Services.Apply(); });
             Toggle(g,"启动时隐藏原生图标","退出 ClearDesk 时恢复。",state.HideAtStart,v => state.HideAtStart=v);
             Toggle(g,"空闲时自动隐藏","一段时间没有操作时，自动隐藏桌面图标。",state.AutoHide,v => state.AutoHide=v);

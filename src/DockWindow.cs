@@ -139,6 +139,8 @@ namespace ClearDesk
                     autoHide.Start();
                 }
                 WatchGeometry();
+                // The constructor lays out before WPF attaches the Dock to its monitor and DPI.
+                Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(delegate { if (!WasClosed) Rebuild(); }));
             };
             IsVisibleChanged += delegate
             {
@@ -234,6 +236,13 @@ namespace ClearDesk
         }
         internal int GeometryChanges;
         internal void TestCheckGeometry() { if (DockPlacement.Signature(Geometry()) != geometrySig) { GeometryChanges++; Rebuild(); } }
+        internal bool TestItemsFit
+        {
+            get
+            {
+                return buttons.Count > 0 && buttons.All(b => Canvas.GetLeft(b) >= 0 && Canvas.GetTop(b) >= 0 && Canvas.GetLeft(b) + b.Width <= Width + .5 && Canvas.GetTop(b) + b.Height <= Height + .5);
+            }
+        }
         /// <summary>Bottom of the visible plate, physical pixels (what the user sees against the screen edge).</summary>
         internal double TestPlateBottomPx { get { var g = Geometry(); return (Top + Canvas.GetTop(plate) + plate.Height) * (g.Scale > 0 ? g.Scale : 1); } }
         protected override void OnDpiChanged(DpiScale oldDpi, DpiScale newDpi) { base.OnDpiChanged(oldDpi, newDpi); if (IsLoaded) Dispatcher.BeginInvoke(new Action(delegate { if (!WasClosed) Rebuild(); }), DispatcherPriority.Background); }

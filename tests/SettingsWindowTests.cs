@@ -31,12 +31,16 @@ namespace ClearDesk
         }
         internal static async Task Run(Action<bool,string> check)
         {
-            bool oldDock=Program.S.Dock; int oldSize=Program.S.DockSize; string oldSource=Program.S.MusicSource;
+            bool oldDock=Program.S.Dock; int oldSize=Program.S.DockSize; string oldSource=Program.S.MusicSource; int oldHotkeyModifiers=Program.S.SettingsHotkeyModifiers, oldHotkeyKey=Program.S.SettingsHotkeyKey;
             var window=new SettingsWindow(delegate { throw new Exception("Startup must not change during settings preview test"); });
             try
             {
                 window.Show(); await Task.Delay(180); window.UpdateLayout();
                 check(window.TestCards==2 && Children<CheckBox>(window).Count()==12,"settings general page contains the eight original desktop and window switches plus GPU rendering, top taskbar auto-hide, (2.2.4) the unverified-TranslucentTB option and (2.3.0) 完全隐藏任务栏");
+                var hotkeyButton=Children<Button>(window).Single(b=>AutomationProperties.GetName(b)=="设置窗口快捷键");
+                check((string)hotkeyButton.Content==SettingsHotkey.Format(Program.S.SettingsHotkeyModifiers,Program.S.SettingsHotkeyKey),"settings expose the current configurable shortcut for reopening the hidden settings window");
+                string hotkeyError;
+                check(Program.SetSettingsHotkey(SettingsHotkey.Control|SettingsHotkey.Shift,0x54,out hotkeyError) && Program.S.SettingsHotkeyModifiers==(SettingsHotkey.Control|SettingsHotkey.Shift) && Program.S.SettingsHotkeyKey==0x54,"changing the settings shortcut persists the selected modifier and key");
                 Capture(window,"settings-general");
                 bool allPages=true;
                 for(int i=0;i<7;i++) { window.TestSelect(i); window.UpdateLayout(); allPages &= window.TestCards>0; Capture(window,"settings-page-"+i); }
@@ -64,7 +68,7 @@ namespace ClearDesk
                 window.TestSearch("no-such-setting-9284"); window.UpdateLayout();
                 check(Children<TextBlock>(window).Any(t=>t.Text.StartsWith("没有找到相关设置")),"empty search shows a readable recovery message");
             }
-            finally { window.Close(); Program.S.Dock=oldDock; Program.S.DockSize=oldSize; Program.S.MusicSource=oldSource; Program.Save(); }
+            finally { window.Close(); Program.S.Dock=oldDock; Program.S.DockSize=oldSize; Program.S.MusicSource=oldSource; Program.S.SettingsHotkeyModifiers=oldHotkeyModifiers; Program.S.SettingsHotkeyKey=oldHotkeyKey; Program.Save(); }
         }
     }
 }
