@@ -968,36 +968,66 @@ namespace ClearDesk
 
     public class ClockWindow : GlassWindow
     {
-        public ClockWindow() : base(Program.Widget("clock", SystemParameters.WorkArea.Right - 410, 245, 370, 170), "时钟", true)
+        static BoxData ClockState()
+        {
+            var area = SystemParameters.WorkArea;
+            var state = Program.Widget("clock", area.Right - 680, 245, 640, 340);
+            if (Math.Abs(state.Width - 370) < .5 && Math.Abs(state.Height - 170) < .5 && state.CustomW <= 0 && state.CustomH <= 0)
+            {
+                double scale = state.Scale <= 0 ? 1 : Math.Max(MinScale, Math.Min(MaxScale, state.Scale));
+                state.Width = 640;
+                state.Height = 340;
+                var position = PositionGuard.Clamp(new Point(state.X, state.Y), new Size(state.Width * scale, state.Height * scale), PositionGuard.WorkAreas(null));
+                state.X = position.X;
+                state.Y = position.Y;
+            }
+            return state;
+        }
+
+        public ClockWindow() : base(ClockState(), "时钟", true)
         {
             Header.Visibility = Visibility.Collapsed;
             Layout.Margin = new Thickness(0);
             var c = new Grid();
-            var day = Program.Text("", 64, "#89FFFFFF");
-            day.FontFamily = new FontFamily("Segoe Script");
-            day.FontStyle = FontStyles.Italic;
-            day.HorizontalAlignment = HorizontalAlignment.Center;
-            day.TextWrapping = TextWrapping.NoWrap;      // 2.3.1: "Wednesday" never breaks into two lines (the second line sat on top of the time); a long day name shrinks instead
-            c.Children.Add(new Viewbox { Stretch = Stretch.Uniform, StretchDirection = StretchDirection.DownOnly, MaxWidth = 330, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Top, Child = day });
-            var s = new StackPanel
+            var content = new StackPanel
             {
-                Margin = new Thickness(0, 52, 0, 0)
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 16, 0, 0)
             };
-            var t = Program.Text("", 40);
+            var day = Program.Text("", 60);
+            day.FontFamily = new FontFamily("Segoe UI");
+            day.FontWeight = FontWeights.Black;
+            day.Foreground = new LinearGradientBrush
+            {
+                StartPoint = new Point(0, .5),
+                EndPoint = new Point(1, .5),
+                GradientStops = new GradientStopCollection
+                {
+                    new GradientStop(Color.FromRgb(0x69, 0xE2, 0xFF), 0),
+                    new GradientStop(Color.FromRgb(0x9F, 0xB5, 0xFF), .55),
+                    new GradientStop(Color.FromRgb(0xE7, 0xA0, 0xFF), 1)
+                }
+            };
+            day.TextAlignment = TextAlignment.Center;
+            day.Margin = new Thickness(0, 0, 0, 10);
+            content.Children.Add(day);
+            var t = Program.Text("", 108, "#F4F8FF");
             t.FontFamily = new FontFamily("Segoe UI Light");
             t.TextAlignment = TextAlignment.Center;
-            var d = Program.Text("", 20);
-            d.FontFamily = new FontFamily("Segoe UI Light");
+            content.Children.Add(t);
+            var d = Program.Text("", 36, "#C1CCDC");
+            d.FontFamily = new FontFamily("Segoe UI");
             d.TextAlignment = TextAlignment.Center;
-            s.Children.Add(t);
-            s.Children.Add(d);
-            c.Children.Add(s);
+            d.Margin = new Thickness(0, 2, 0, 0);
+            content.Children.Add(d);
+            c.Children.Add(content);
             c.HorizontalAlignment = HorizontalAlignment.Center;
             Body.Children.Add(c);
-            Tick(10000, delegate
+            Tick(1000, delegate
             {
                 var now = DateTime.Now;
-                string a = now.ToString("dddd", CultureInfo.InvariantCulture), b = now.ToString("HH:mm"), cdate = now.ToString("dd MMMM", CultureInfo.InvariantCulture);
+                string a = now.ToString("dddd", CultureInfo.InvariantCulture), b = now.ToString("HH:mm:ss"), cdate = now.ToString("M月d日", CultureInfo.InvariantCulture);
                 if (day.Text != a)
                     day.Text = a;
                 if (t.Text != b)
